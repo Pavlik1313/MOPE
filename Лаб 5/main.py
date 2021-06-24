@@ -1,172 +1,240 @@
 import random
-import numpy as np
+import sklearn.linear_model as lm
 from scipy.stats import f, t
-from pprint import pprint
-from sklearn import linear_model
-import time
+from functools import partial
+from pyDOE2 import *
+from time import process_time
 
-m = 3
-x1_min = -7
-x1_max = 10
-x2_min = -4
-x2_max = 8
-x3_min = -5
-x3_max = 4
-print("x1_min = "+str(x1_min), "x2_min = "+str(x2_min), "x3_min = "+str(x3_min))
-print("x1_max = "+str(x1_max), "x2_max = "+str(x2_max), "x3_max = "+str(x3_max))
-print("")
 
-y_min = 200 + (x1_min + x2_min + x3_min) / 3
-y_max = 200 + (x1_max + x2_max + x3_max) / 3
-print("y_min = "+str(y_min), "y_max = "+str(y_max))
-print("")
+def regression(x, b):
+    y = sum([x[i] * b[i] for i in range(len(x))])
+    return y
 
-mp = [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-      [-1, -1, -1, -1, 1, 1, 1, 1, -1.215, 1.215, 0, 0, 0, 0, 0],
-      [-1, -1, 1, 1, -1, -1, 1, 1, 0, 0, -1.215, 1.215, 0, 0, 0],
-      [-1, 1, -1, 1, -1, 1, -1, 1, 0, 0, 0, 0, -1.215, 1.215, 0]]
-pprint(mp)
-print("")
 
-x1x2_norm = [0] * 15
-x1x3_norm = [0] * 15
-x2x3_norm = [0] * 15
-x1x2x3_norm = [0] * 15
-x1x1_norm = [0] * 15
-x2x2_norm = [0] * 15
-x3x3_norm = [0] * 15
+def skv(y, avgY, n, m):
+    res = []
+    for i in range(n):
+        s = sum([(avgY[i] - y[i][j]) ** 2 for j in range(m)]) / m
+        res.append(round(s, 3))
+    return res
 
-for i in range(15):
-    x1x2_norm[i] = mp[1][i] * mp[2][i]
-    x1x3_norm[i] = mp[1][i] * mp[3][i]
-    x2x3_norm[i] = mp[2][i] * mp[3][i]
-    x1x2x3_norm[i] = mp[1][i] * mp[2][i] * mp[3][i]
-    x1x1_norm[i] = round(mp[1][i] ** 2, 3)
-    x2x2_norm[i] = round(mp[2][i] ** 2, 3)
-    x3x3_norm[i] = round(mp[3][i] ** 2, 3)
 
-Y = [[random.randint(int(y_min), int(y_max)) for i in range(m)] for j in range(15)]
-print("Матриця планування Y")
-pprint(Y)
-print("")
+def planMatrix5(n, m):
+    print(f'\nГенеруємо матрицю планування для n = {n}, m = {m}')
 
-x1_aver = (x1_max + x1_min) / 2
-x2_aver = (x2_max + x2_min) / 2
-x3_aver = (x3_max + x3_min) / 2
-x1_delt = x1_max - x1_aver
-x2_delt = x2_max - x2_aver
-x3_delt = x3_max - x3_aver
+    y = np.zeros(shape=(n, m))
+    for i in range(n):
+        for j in range(m):
+            y[i][j] = random.randint(minY, maxY)
 
-x0 = [1] * 15
-x1 = [-7, -7, -7, -7, 10, 10, 10, 10, -1.215 * x1_delt + x1_aver, 1.215 * x1_delt + x1_aver, x1_aver, x1_aver, x1_aver, x1_aver, x1_aver]
-x2 = [-4, -4, 8, 8, -4, -4, 8, 8, x2_aver, x2_aver, -1.215 * x2_delt + x2_aver, 1.215 * x2_delt + x2_aver, x2_aver, x2_aver, x2_aver]
-x3 = [-5, 4, -5, 4, -5, 4, -5, 4, x3_aver, x3_aver, x3_aver, x3_aver, -1.215 * x3_delt + x3_aver, 1.215 * x3_delt + x3_aver, x3_aver]
-
-x1x2 = [0] * 15
-x1x3 = [0] * 15
-x2x3 = [0] * 15
-x1x2x3 = [0] * 15
-x1x1 = [0] * 15
-x2x2 = [0] * 15
-x3x3 = [0] * 15
-
-for i in range(15):
-    x1x2[i] = round(x1[i] * x2[i], 3)
-    x1x3[i] = round(x1[i] * x3[i], 3)
-    x2x3[i] = round(x2[i] * x3[i], 3)
-    x1x2x3[i] = round(x1[i] * x2[i] * x3[i], 3)
-    x1x1[i] = round(x1[i] ** 2, 3)
-    x2x2[i] = round(x2[i] ** 2, 3)
-    x3x3[i] = round(x3[i] ** 2, 3)
-
-aver_y = []
-for i in range(len(Y)):
-    aver_y.append(np.mean(Y[i], axis=0))
-    aver_y = [round(i,3) for i in aver_y]
-
-list_for_b = list(zip(mp[0], mp[1], mp[2], mp[3], x1x2_norm, x1x3_norm, x2x3_norm, x1x2x3_norm, x1x1_norm, x2x2_norm, x3x3_norm))
-list_for_a = list(zip(x0, x1, x2, x3, x1x2, x1x3, x2x3, x1x2x3, x1x1, x2x2, x3x3))
-print("Матриця планування з нормованими коефіцієнтами X")
-pprint(list_for_b)
-print("")
-
-skm = linear_model.LinearRegression(fit_intercept=False)
-skm.fit(list_for_b, aver_y)
-b = skm.coef_
-b = [round(i, 3) for i in b]
-
-print("Рівняння регресії зі знайденими коефіцієнтами: \n" "y = {} + {}*x1 + {}*x2 + {}*x3 + {}*x1x2 + {}*x1x3 + {"
-      "}*x2x3 + {}*x1x2x3 {}*x1x1 + {}*x2x2 + {}*x3x3".format(b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10]))
-print("")
-
-print("\033[1m\033[30m\033[43m{}\033[0m".format("Перевірка за критерієм Кохрена"))
-start1 = time.time()
-print("Середні значення відгуку за рядками\n", +aver_y[0], aver_y[1], aver_y[2], aver_y[3],
-      aver_y[4], aver_y[5], aver_y[6], aver_y[7], aver_y[8], aver_y[9], aver_y[10],
-      aver_y[11], aver_y[12], aver_y[13], aver_y[14])
-disp = []
-for i in range(len(Y)):
-    a = 0
-    for k in Y[i]:
-        a += (k - np.mean(Y[i], axis=0)) ** 2
-    disp.append(a / len(Y[i]))
-
-Gp = max(disp) / sum(disp)
-Gt = 0.3346
-if Gp < Gt:
-    print("\033[1m\033[30m\033[42m{}\033[0m".format("Дисперсія однорідна"))
-else:
-    print("\033[1m\033[30m\033[41m{}\033[0m".format("Дисперсія неоднорідна"))
-print("")
-end1 = time.time()
-res1 = end1 - start1
-print("time Kohena = "+ str(res1))
-
-print("\033[1m\033[30m\033[43m{}\033[0m".format("Перевірка значущості коефіцієнтів за критерієм Стьюдента"))
-start2 = time.time()
-sb = sum(disp) / len(disp)
-sbs = (sb / (15 * m)) ** 0.5
-
-t_list = [abs(b[i]) / sbs for i in range(0, 11)]
-
-d = 0
-res = [0] * 11
-coef_1 = []
-coef_2 = []
-n = 15
-F3 = (m - 1) * n
-for i in range(11):
-    if t_list[i] >= t.ppf(q=0.975, df=F3):
-        coef_1.append(b[i])
-        res[i] = b[i]
-        d += 1
+    if n > 14:
+        no = n - 14
     else:
-        coef_2.append(b[i])
-        res[i] = 0
-print("Значущі коефіцієнти регресії\n", coef_1)
-print("Незначущі коефіцієнти регресії\n", coef_2)
+        no = 1
+    normX = ccdesign(3, center=(0, no))
+    normX = np.insert(normX, 0, 1, axis=1)
 
-y_st = []
-for i in range(15):
-    y_st.append(res[0] + res[1] * mp[1][i] + res[2] * mp[2][i] + res[3] * mp[3][i] + res[4] * x1x2_norm[i] + res[5] *
-                x1x3_norm[i] + res[6] * x2x3_norm[i] + res[7] * x1x2x3_norm[i] + res[8] * x1x1_norm[i] + res[9] *
-                x2x2_norm[i] + res[10] * x3x3_norm[i])
-print("Значення з отриманими коефіцієнтами:\n", y_st)
-print("")
-end2 = time.time()
-res2 = end2 - start2
-print("time studenta x1000 = "+ str(1000*res2))
+    for i in range(4, 11):
+        normX = np.insert(normX, i, 0, axis=1)
 
-print("\033[1m\033[30m\033[43m{}\033[0m".format("Перевірка адекватності за критерієм Фішера"))
-start3 = time.time()
-Sad = m * sum([(y_st[i] - aver_y[i]) ** 2 for i in range(15)]) / (n - d)
-Fp = Sad / sb
-F4 = n - d
-print("Fp =", Fp)
-if Fp < f.ppf(q=0.95, dfn=F4, dfd=F3):
-    print("\033[1m\033[30m\033[42m{}\033[0m".format("При рівні значимості 0.05 рівняння регресії адекватне"))
-else:
-    print("\033[1m\033[30m\033[41m{}\033[0m".format("При рівні значимості 0.05 рівняння регресії неадекватне"))
-end3 = time.time()
-res3 = end3 - start3
-print("time Fishera = "+ str(res3))
+    l = 1.215
+
+    for i in range(len(normX)):
+        for j in range(len(normX[i])):
+            if normX[i][j] < -1 or normX[i][j] > 1:
+                if normX[i][j] < 0:
+                    normX[i][j] = -l
+                else:
+                    normX[i][j] = l
+
+    def addSqNums(x):
+        for i in range(len(x)):
+            x[i][4] = x[i][1] * x[i][2]
+            x[i][5] = x[i][1] * x[i][3]
+            x[i][6] = x[i][2] * x[i][3]
+            x[i][7] = x[i][1] * x[i][3] * x[i][2]
+            x[i][8] = x[i][1] ** 2
+            x[i][9] = x[i][2] ** 2
+            x[i][10] = x[i][3] ** 2
+        return x
+
+    normX = addSqNums(normX)
+
+    x = np.ones(shape=(len(normX), len(normX[0])), dtype=np.int64)
+    for i in range(8):
+        for j in range(1, 4):
+            if normX[i][j] == -1:
+                x[i][j] = rangeX[j - 1][0]
+            else:
+                x[i][j] = rangeX[j - 1][1]
+
+    for i in range(8, len(x)):
+        for j in range(1, 3):
+            x[i][j] = (rangeX[j - 1][0] + rangeX[j - 1][1]) / 2
+
+    dx = [rangeX[i][1] - (rangeX[i][0] + rangeX[i][1]) / 2 for i in range(3)]
+
+    x[8][1] = l * dx[0] + x[9][1]
+    x[9][1] = -l * dx[0] + x[9][1]
+    x[10][2] = l * dx[1] + x[9][2]
+    x[11][2] = -l * dx[1] + x[9][2]
+    x[12][3] = l * dx[2] + x[9][3]
+    x[13][3] = -l * dx[2] + x[9][3]
+
+    x = addSqNums(x)
+
+    print('\nX:\n', x)
+    print('\nX нормоване:\n')
+    for i in normX:
+        print([round(x, 2) for x in i])
+    print('\nY:\n', y)
+
+    return x, y, normX
+
+
+def findCoef(X, Y, norm=False):
+    skm = lm.LinearRegression(fit_intercept=False)
+    skm.fit(X, Y)
+    B = skm.coef_
+
+    if norm == 1:
+        print('\nКоефіцієнти рівняння регресії з нормованими X:')
+    else:
+        print('\nКоефіцієнти рівняння регресії:')
+    B = [round(i, 3) for i in B]
+    print(B)
+    print('\nРезультат рівняння зі знайденими коефіцієнтами:\n', np.dot(X, B))
+    return B
+
+
+def kriteriaCochrana(y, avgY, n, m):
+    f1 = m - 1
+    f2 = n
+    q = 0.05
+    Skv = skv(y, avgY, n, m)
+    Gp = max(Skv) / sum(Skv)
+    print('\nПеревірка за критерієм Кохрена')
+    return Gp
+
+
+def cohren(f1, f2, q=0.05):
+    q1 = q / f1
+    fisherValue = f.ppf(q=1 - q1, dfn=f2, dfd=(f1 - 1) * f2)
+    return fisherValue / (fisherValue + f1 - 1)
+
+
+def bs(x, avgY, n):  # метод для оцінки коефіцієнтів
+    res = [sum(1 * y for y in avgY) / n]
+
+    for i in range(len(x[0])):
+        b = sum(j[0] * j[1] for j in zip(x[:, i], avgY)) / n
+        res.append(b)
+    return res
+
+
+def studentKriteria(x, y, avgY, n, m):
+    Skv = skv(y, avgY, n, m)
+    avgSkv = sum(Skv) / n
+
+    s_Bs = (avgSkv / n / m) ** 0.5
+    Bs = bs(x, avgY, n)
+    ts = [round(abs(B) / s_Bs, 3) for B in Bs]
+
+    return ts
+
+
+def kriteriaFisher(y, avgY, newY, n, m, d):
+    Sad = m / (n - d) * sum([(newY[i] - avgY[i]) ** 2 for i in range(len(y))])
+    Skv = skv(y, avgY, n, m)
+    avgSkv = sum(Skv) / n
+
+    return Sad / avgSkv
+
+
+def check(X, Y, B, n, m):
+    print('\n\tПеревірка рівняння:')
+    f1 = m - 1
+    f2 = n
+    f3 = f1 * f2
+    q = 0.05
+
+    student = partial(t.ppf, q=1 - q)
+    Tstudent = student(df=f3)
+
+    Gkr = cohren(f1, f2)
+
+    avgY = [round(sum(i) / len(i), 3) for i in Y]
+    print('\nСереднє значення y:', avgY)
+
+    disp = skv(Y, avgY, n, m)
+    print('Дисперсія y:', disp)
+
+    Gp = kriteriaCochrana(Y, avgY, n, m)
+    print(f'Gp = {Gp}')
+    if Gp < Gkr:
+        print(f'З ймовірністю {1 - q} дисперсії однорідні.')
+    else:
+        print("Необхідно збільшити кількість дослідів")
+        m += 1
+        main(n, m)
+
+    ts = studentKriteria(X[:, 1:], Y, avgY, n, m)
+    print('\nКритерій Стьюдента:\n', ts)
+    res = [t for t in ts if t > Tstudent]
+    finalK = [B[i] for i in range(len(ts)) if ts[i] in res]
+    print('\nКоефіцієнти {} статистично незначущі, тому ми виключаємо їх з рівняння.'.format(
+        [round(i, 3) for i in B if i not in finalK]))
+
+    newY = []
+    for j in range(n):
+        newY.append(regression([X[j][i] for i in range(len(ts)) if ts[i] in res], finalK))
+
+    print(f'\nЗначення "y" з коефіцієнтами {finalK}')
+    print(newY)
+
+    timeStart = process_time()
+
+    d = len(res)
+    if d >= n:
+        print('\nF4 <= 0')
+        print('')
+        return
+    f4 = n - d
+
+    Fp = kriteriaFisher(Y, avgY, newY, n, m, d)
+    fisher = partial(f.ppf, q=0.95)
+    Ft = fisher(dfn=f4, dfd=f3)
+    print('\nПеревірка адекватності за критерієм Фішера')
+    print('Fp =', Fp)
+    print('Ft =', Ft)
+    if Fp < Ft:
+        print('Математична модель адекватна експериментальним даним')
+    else:
+        print('Математична модель не адекватна експериментальним даним')
+
+    timeEnd = process_time()
+    print(f"Час перевірки адекватності системи за критерієм Фішера: {timeEnd - timeStart}")
+
+
+def main(n, m):
+    X5, Y5, normX5 = planMatrix5(n, m)
+
+    averY5 = [round(sum(i) / len(i), 3) for i in Y5]
+    B5 = findCoef(X5, averY5)
+
+    check(normX5, Y5, B5, n, m)
+
+
+if __name__ == '__main__':
+    # Варіант - 117
+    rangeX = ((-7, 10), (-4, 8), (-5, 4))
+
+    avgMaxX = sum([x[1] for x in rangeX]) / 3
+    avgMinX = sum([x[0] for x in rangeX]) / 3
+
+    maxY = 200 + int(avgMaxX)
+    minY = 200 + int(avgMinX)
+
+    n = 15
+    m = 3
+    main(n, m)
