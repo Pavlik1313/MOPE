@@ -1,4 +1,7 @@
 import random as rndm
+import time
+
+start1 = time.time()
 
 def Calc(a0, a1, a2, a3):
     x1 = rndm.randint(0, 20)
@@ -58,3 +61,7 @@ print("")
 
 g = tab[3].index(min(tab[3]))
 print("min(Y): " + str(tab[0][g]) + ", " + str(tab[1][g]) + ", " + str(tab[2][g]))
+
+end1 = time.time()
+res1 = end1 - start1
+print("time = "+ str(res1))
