@@ -8,7 +8,7 @@ public static class FermatMethod {
     private const int MAX_OPERATION_TIME = 1;
     private const string TOO_MUCH_TIME = "Помилка виконання";
 
-    public static long[] Factorize(long n) {
+    public static long[] Factorize(long n, out int numOfIters) {
         if (n % 2 == 0) {
             throw new Exception(N_MUST_BE_ODD);
         }
@@ -18,25 +18,26 @@ public static class FermatMethod {
         }
 
         var multipliers = new List<long>();
-        var sqrts = GetSumOfSquares(n);
+        var sqrts = GetSumOfSquares(n, out  numOfIters);
         multipliers.Add(Math.Abs(sqrts[0] + sqrts[1]));
         multipliers.Add(Math.Abs(sqrts[0] - sqrts[1]));
 
         return multipliers.ToArray();
     }
 
-    private static long[] GetSumOfSquares(long n) {
+    private static long[] GetSumOfSquares(long n, out int numOfIters) {
         double x, y;
 
+        numOfIters = 1;
         x = Math.Ceiling(Math.Sqrt(n));
         y = Math.Pow(x, 2) - n;
 
         while (Math.Abs(Math.Sqrt(y) - Math.Ceiling(Math.Sqrt(y))) > 0.0001f) {
             x++;
             y = Math.Pow(x, 2) - n;
+            numOfIters++;
 
             if (Time.deltaTime >= MAX_OPERATION_TIME) throw new Exception(TOO_MUCH_TIME);
-
         }
 
         return new[] {(long) x, (long) Math.Sqrt(y)};

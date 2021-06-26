@@ -86,23 +86,25 @@ public class CanvasController : MonoBehaviour {
         }
 
         long[] multipliers;
+		int numOfIters;
         try {
-            multipliers = FindMultipliers(n);
+            multipliers = FindMultipliers(n, out numOfIters);
         }
         catch (Exception e) {
             RaiseAndShowError(e.Message);
             return;
         }
 
-        ShowResult(multipliers, n);
+        ShowResult(multipliers, n, numOfIters);
     }
 
-    private void ShowResult(long[] multipliers, long n) {
+    private void ShowResult(long[] multipliers, long n, int numOfIters) {
         var resultText = $"n = {n} = {string.Join(" * ", multipliers)}";
-        result.text = resultText;
+		var numOfItersText = $"\nКiлькicть iтерацiй = {numOfIters}";
+        result.text = resultText + numOfItersText;
     }
 
-    private long[] FindMultipliers(long n) {
-        return FermatMethod.Factorize(n);
+    private long[] FindMultipliers(long n, out int numOfIters) {
+        return FermatMethod.Factorize(n, out numOfIters);
     }
 }
